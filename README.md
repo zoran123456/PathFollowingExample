@@ -1,6 +1,6 @@
 # Path Following Example
 
-### Path Following problem solution using backtracking algorithm
+### Path Following problem solution using a backtracking algorithm
 
 #### Prerequisites
 ```
@@ -15,7 +15,7 @@ After downloading code with a Visual Studio solution, please go to **PathFollowi
 using command line
 
 
-In a command line (and in valid folder), type
+In a command line (and in a valid folder), type
 
 ```
 
@@ -28,7 +28,7 @@ dotnet run
 To invoke unit tests using command line, please go to **PathFollowingSolverTests** folder 
 using command line
 
-In a command line (and in valid folder), type
+In a command line (and in a valid folder), type
 
 ```
 
