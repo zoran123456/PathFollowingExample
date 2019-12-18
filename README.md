@@ -2,7 +2,7 @@
 
 ### Path Following problem solution using backtracking algorithm
 
-#### Prerequisities
+#### Prerequisites
 ```
 
 .NET Core 3.0
