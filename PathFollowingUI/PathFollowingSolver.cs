@@ -4,7 +4,7 @@ using System;
 using System.Drawing;
 using System.IO;
 
-namespace ContosoConsoleTest
+namespace PathFollowingUI
 {
 
     /// <summary>
