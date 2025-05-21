@@ -6,21 +6,24 @@ using System.IO;
 
 namespace PathFollowingUI
 {
-
     /// <summary>
-    /// Represents a class for solving path following problem
+    /// Provides functionality for solving path following problems.
+    /// Acts as a facade for the underlying solving algorithm.
     /// </summary>
     public class PathFollowingSolver
     {
+        /// <summary>
+        /// Event that triggers when player position changes during solving.
+        /// </summary>
         public event CustomEvents.PlayerPositionChangedHandler PlayerPositionChanged;
 
         /// <summary>
-        /// Defines valid letters on a game board
+        /// Defines valid letters on a game board.
         /// </summary>
         private const string ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         /// <summary>
-        /// Defines valid characters on a game board
+        /// Defines valid characters on a game board.
         /// </summary>
         private readonly string VALID_BOARD_CHARS = ALPHABET +
             (char)BoardLetterDefinition.MoveAnywhere +
@@ -29,23 +32,24 @@ namespace PathFollowingUI
             (char)BoardLetterDefinition.PlayerEndPosition +
             (char)BoardLetterDefinition.PlayerStartPosition;
 
-
         /// <summary>
         /// Stores game board information (board definition, found solution, etc.)
         /// </summary>
         private GameBoardDefinition boardDefinition;
 
-
         /// <summary>
-        /// Helper Utility that loads Game Board from file
+        /// Helper Utility that loads Game Board from file.
         /// </summary>
         private GameBoardFileLoader boardLoader;
+
+        /// <summary>
+        /// Gets the board loader, creating it if necessary (lazy loading).
+        /// </summary>
         private GameBoardFileLoader BoardLoader
         {
             get
             {
-                // Lazy load class, a good practice to use it when possible
-
+                // Lazy load the board loader when first needed
                 if (boardLoader == null)
                     boardLoader = new GameBoardFileLoader(
                         VALID_BOARD_CHARS,
@@ -57,15 +61,14 @@ namespace PathFollowingUI
         }
 
         /// <summary>
-        /// Initializes new Solver instance
+        /// Initializes a new instance of the PathFollowingSolver class.
         /// </summary>
-        /// <param name="gameBoardPath">Points to a full path to game board (e.g. c:\\temp\\board1.txt)</param>
-        /// <param name="endSolution">Solution of a board (e.g. ABCD)</param>
+        /// <param name="gameBoardPath">Full path to the game board file (e.g. c:\temp\board1.txt)</param>
+        /// <param name="endSolution">Target solution word (e.g. ABCD)</param>
+        /// <exception cref="ArgumentException">Thrown when inputs are invalid</exception>
         public PathFollowingSolver(string gameBoardPath, string endSolution)
         {
-
             // Validate input parameters
-
             if (string.IsNullOrWhiteSpace(gameBoardPath) || !File.Exists(gameBoardPath))
                 throw new ArgumentException(Constants.ErrorFileNotFound, nameof(gameBoardPath));
 
@@ -74,31 +77,36 @@ namespace PathFollowingUI
 
             // Load game board
             LoadBoard(gameBoardPath, endSolution);
-
         }
 
         /// <summary>
-        /// Attempts to Solve game board using provided algorithm
+        /// Attempts to solve the game board using the backtracking algorithm.
         /// </summary>
-        /// <returns></returns>
+        /// <param name="solutionWord">When method returns, contains the found solution word or empty if no solution</param>
+        /// <param name="pathWord">When method returns, contains the path word or empty if no solution</param>
+        /// <returns>True if a solution was found, false otherwise</returns>
         public bool Solve(out string solutionWord, out string pathWord)
         {
+            // Create a solver instance using the backtracking algorithm
             BacktrackingSolver solver = new BacktrackingSolver(boardDefinition);
 
-            if (PlayerPositionChanged !=null)
+            // Register for position change events if needed
+            if (PlayerPositionChanged != null)
             {
                 solver.PlayerPositionChanged += Solver_PlayerPositionChanged;
             }
 
+            // Get the starting position
             Point startPos = boardDefinition.PlayerStartPosition;
 
+            // Attempt to find a solution
             var solution = solver.FindSolution(
                 startPos.X,
                 startPos.Y,
                 boardDefinition.BoardWordSolution,
                 boardDefinition.BoardSolution);
 
-
+            // Extract solution details
             bool solutionFound = solution.SolutionFound;
             solutionWord = solution.SolutionWord;
             pathWord = solution.PathWord;
@@ -106,32 +114,34 @@ namespace PathFollowingUI
             return solutionFound;
         }
 
+        /// <summary>
+        /// Event handler that forwards player position changes to subscribers.
+        /// </summary>
         private void Solver_PlayerPositionChanged(GameBoardDefinition gameBoard, string currentWord, string pathWord)
         {
             PlayerPositionChanged(gameBoard, currentWord, pathWord);
         }
 
         /// <summary>
-        /// Initializes game board and sets starting/ending player position
+        /// Initializes the game board and sets starting/ending player positions.
         /// </summary>
-        /// <param name="gameBoardPath">Location of a full path to a game board</param>
-        /// <param name="endSolution">Solution of a board (e.g. ABCD)</param>
+        /// <param name="gameBoardPath">Full path to the game board file</param>
+        /// <param name="endSolution">Target solution word</param>
         private void LoadBoard(string gameBoardPath, string endSolution)
         {
-            // Initialize game board, player start/end position and set board solution
-
+            // Load the game board from file
             boardDefinition = BoardLoader.LoadGameBoard(gameBoardPath);
 
-            // Set properties not populated with LoadGameBoard method
+            // Set additional properties
             boardDefinition.BoardWordSolution = endSolution;
             boardDefinition.BoardTunnels = FindTunnels(boardDefinition);
         }
 
         /// <summary>
-        /// Finds "tunnels" in a game board, vertical path solution can cross horizontal path solution, and vice versa
+        /// Finds "tunnels" in a game board, where vertical path solution can cross horizontal path solution, and vice versa.
         /// </summary>
-        /// <param name="boardDefinition"></param>
-        /// <returns></returns>
+        /// <param name="boardDefinition">Current game board definition</param>
+        /// <returns>A 2D array indicating tunnel positions</returns>
         private bool[,] FindTunnels(GameBoardDefinition boardDefinition)
         {
             int boardWidth = boardDefinition.BoardWidth;
@@ -140,6 +150,7 @@ namespace PathFollowingUI
 
             bool[,] tunnels = new bool[boardWidth, boardHeight];
 
+            // Helper method to check if a position can be a tunnel based on surrounding cells
             bool AreTunnelBoundsValid(int x, int y, bool checkVertical)
             {
                 if (checkVertical)
@@ -158,6 +169,7 @@ namespace PathFollowingUI
                 }
             }
 
+            // Scan the board to identify tunnel positions
             for (var y = 0; y < boardHeight; y++)
             {
                 for (var x = 0; x < boardWidth; x++)
@@ -170,6 +182,7 @@ namespace PathFollowingUI
                         switch (c)
                         {
                             case (char)BoardLetterDefinition.MoveHorizontal:
+                                // Horizontal paths can intersect with vertical paths
                                 if (AreTunnelBoundsValid(x, y, true))
                                 {
                                     tunnels[x, y] = true;
@@ -177,6 +190,7 @@ namespace PathFollowingUI
                                 break;
 
                             case (char)BoardLetterDefinition.MoveVertical:
+                                // Vertical paths can intersect with horizontal paths
                                 if (AreTunnelBoundsValid(x, y, false))
                                 {
                                     tunnels[x, y] = true;
@@ -186,6 +200,7 @@ namespace PathFollowingUI
                     }
                     else if (ALPHABET.Contains(c))
                     {
+                        // Letters can be tunnels if they're at intersections
                         if (AreTunnelBoundsValid(x, y, true) && AreTunnelBoundsValid(x, y, false))
                         {
                             tunnels[x, y] = true;
@@ -198,12 +213,15 @@ namespace PathFollowingUI
         }
 
         /// <summary>
-        /// Determines whether current X,Y position is withing game board bounds
+        /// Checks if the given coordinates are within the game board boundaries.
         /// </summary>
+        /// <param name="x">X coordinate</param>
+        /// <param name="y">Y coordinate</param>
+        /// <param name="boardDefinition">Game board definition</param>
+        /// <returns>True if coordinates are valid, false otherwise</returns>
         private bool AreValidBounds(int x, int y, GameBoardDefinition boardDefinition)
         {
             return Utils.AreValidBounds(x, y, boardDefinition.BoardWidth, boardDefinition.BoardHeight);
         }
     }
-
 }

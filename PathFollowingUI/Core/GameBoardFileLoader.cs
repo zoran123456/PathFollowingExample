@@ -6,26 +6,40 @@ using System.Linq;
 namespace PathFollowingUI.Core
 {
     /// <summary>
-    /// Helper utility that loads unnormalized file and returns string array with canonical form
+    /// Provides functionality to load and parse game board files.
+    /// Handles validation, normalization, and conversion to the game board definition structure.
     /// </summary>
     public class GameBoardFileLoader
     {
+        /// <summary>
+        /// Character used to fill empty spaces in the game board.
+        /// </summary>
         private const char EMPTY_CHAR = ' ';
 
+        /// <summary>
+        /// Set of valid characters allowed in the game board.
+        /// </summary>
         private readonly string validBoardCharacters;
 
+        /// <summary>
+        /// Character representing the player's starting position.
+        /// </summary>
         private readonly char playerStartPositionChar;
 
+        /// <summary>
+        /// Character representing the player's ending position.
+        /// </summary>
         private readonly char playerEndPositionChar;
 
         /// <summary>
-        /// Initializes new instance of a class
+        /// Initializes a new instance of the GameBoardFileLoader class.
         /// </summary>
-        /// <param name="validBoardCharacters">Defines valid characters in a game board</param>
-        /// <param name="playerStart">Defines character for player start position</param>
-        /// <param name="playerEnd">Defines character for player end position</param>
+        /// <param name="validBoardCharacters">Set of valid characters in the game board</param>
+        /// <param name="playerStart">Character representing player start position</param>
+        /// <param name="playerEnd">Character representing player end position</param>
         public GameBoardFileLoader(string validBoardCharacters, char playerStart, char playerEnd)
         {
+            // Include the empty space character in valid characters
             this.validBoardCharacters = validBoardCharacters + EMPTY_CHAR;
 
             playerStartPositionChar = playerStart;
@@ -33,65 +47,66 @@ namespace PathFollowingUI.Core
         }
 
         /// <summary>
-        /// Loads unnormalized file and returns string array with canonical form
+        /// Loads and processes a game board file, returning a fully initialized game board definition.
         /// </summary>
-        /// <param name="path"></param>
-        /// <returns></returns>
+        /// <param name="path">Path to the game board file</param>
+        /// <returns>A GameBoardDefinition populated with the game board data</returns>
+        /// <exception cref="ArgumentException">Thrown when the file is invalid or missing</exception>
         public GameBoardDefinition LoadGameBoard(string path)
         {
+            // Validate the file path
             if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
                 throw new ArgumentException(Constants.ErrorFileNotFound, nameof(path));
 
+            // Load all lines from the file
             var lines = File.ReadAllLines(path);
 
-            // Check if file is empty
+            // Check if the file has content
             if (lines.Length < 1)
                 throw new ArgumentException(Constants.ErrorFileInvalid, nameof(path));
 
-            // Find longest line
-            int longestLine = lines.Select(l => l.Length).OrderByDescending(l => l).First();
+            // Find the length of the longest line for normalization
+            int longestLine = lines.Select(l => l.Length).Max();
 
-            // Normalize lines (extrude lines shorter than longest line in an array)
+            // Normalize lines to ensure consistent width
             NormalizeBoardLines(longestLine, lines);
 
-            // Validate game board for player start/end position and allowed characters
+            // Validate the game board content
             ValidateGameBoard(lines);
 
-
-
+            // Parse the normalized board into a GameBoardDefinition
             return GetGameBoardDefinition(lines);
-
         }
 
         /// <summary>
-        /// Parses game board lines and returns new instance of GameBoardDefinition POCO class 
+        /// Parses normalized game board lines into a GameBoardDefinition object.
         /// </summary>
-        /// <param name="lines"></param>
-        /// <returns></returns>
+        /// <param name="lines">Normalized lines representing the game board</param>
+        /// <returns>A fully populated GameBoardDefinition</returns>
         private GameBoardDefinition GetGameBoardDefinition(string[] lines)
         {
-            // Game Board has previously been normalized so no file validation is needed
-            // We are ensured that file is valid, lines contain valid info
-            // and player start/end positions exists
-
+            // Initialize positions (will be set during parsing)
             Point playerStartPos = new Point();
             Point playerEndPos = new Point();
 
+            // Determine board dimensions
             int boardWidth = lines[0].Length;
             int boardHeight = lines.Length;
 
+            // Initialize game board arrays
             char[,] gameBoard = new char[boardWidth, boardHeight];
-            bool[,] solution = new bool[boardWidth, boardHeight];   // Defaults everything to false
+            bool[,] solution = new bool[boardWidth, boardHeight];   // Defaults to false
 
-            // Fill game board and find player start/end positions
+            // Parse each character in the board
             for (var y = 0; y < boardHeight; y++)
             {
-                string ln = lines[y];
+                string line = lines[y];
 
-                for (var x = 0; x < ln.Length; x++)
+                for (var x = 0; x < line.Length; x++)
                 {
-                    char c = ln[x];
+                    char c = line[x];
 
+                    // Record special positions
                     if (c == playerStartPositionChar)
                     {
                         playerStartPos = new Point(x, y);
@@ -101,11 +116,12 @@ namespace PathFollowingUI.Core
                         playerEndPos = new Point(x, y);
                     }
 
+                    // Store the character in the game board
                     gameBoard[x, y] = c;
-
                 }
             }
 
+            // Create and return the game board definition
             return new GameBoardDefinition
             {
                 RawFile = lines,
@@ -116,18 +132,16 @@ namespace PathFollowingUI.Core
                 PlayerStartPosition = playerStartPos,
                 PlayerEndPosition = playerEndPos
             };
-
-
         }
 
-
-
         /// <summary>
-        /// Validates game board for allowed characters and player start/end positions
+        /// Validates the game board for allowed characters and required elements.
         /// </summary>
-        /// <param name="lines">Reference to a string array that defines game board</param>
+        /// <param name="lines">String array representing the game board</param>
+        /// <exception cref="ArgumentException">Thrown when validation fails</exception>
         private void ValidateGameBoard(string[] lines)
         {
+            // Helper function to check for valid characters
             void EnsureLineHasValidCharacters(string line)
             {
                 foreach (var ch in line)
@@ -140,20 +154,22 @@ namespace PathFollowingUI.Core
                 }
             }
 
-            // 1. Validate characters in string array
-            // 2. Ensure player start/end positions are defined
-
+            // Track whether required positions are found
             bool playerHasStartPosition = false;
             bool playerHasEndPosition = false;
 
+            // Check each line for valid characters and special positions
             foreach (var line in lines)
             {
+                // Validate characters
                 EnsureLineHasValidCharacters(line);
 
+                // Check for special positions
                 foreach (var ch in line)
                 {
                     if (ch == playerStartPositionChar)
                     {
+                        // Ensure there's only one start position
                         if (playerHasStartPosition)
                         {
                             throw new ArgumentException(Constants.ErrorPlayerStartPosDuplicate, nameof(lines));
@@ -163,6 +179,7 @@ namespace PathFollowingUI.Core
                     }
                     else if (ch == playerEndPositionChar)
                     {
+                        // Ensure there's only one end position
                         if (playerHasEndPosition)
                         {
                             throw new ArgumentException(Constants.ErrorPlayerEndPosDuplicate, nameof(lines));
@@ -173,6 +190,7 @@ namespace PathFollowingUI.Core
                 }
             }
 
+            // Ensure required positions are present
             if (!playerHasStartPosition)
             {
                 throw new ArgumentException(Constants.ErrorPlayerStartPosNotFound, nameof(lines));
@@ -182,29 +200,27 @@ namespace PathFollowingUI.Core
             {
                 throw new ArgumentException(Constants.ErrorPlayerEndPosNotFound, nameof(lines));
             }
-
         }
 
         /// <summary>
-        /// Extrudes lines in string array if their length is shorter than a value provided
+        /// Normalizes board lines by padding shorter lines with spaces to make all lines the same length.
         /// </summary>
-        /// <param name="length">Needed length of lines</param>
-        /// <param name="lines">Reference to a string array with lines to extrude</param>
+        /// <param name="length">Target length for all lines</param>
+        /// <param name="lines">Reference to the string array to normalize</param>
         private void NormalizeBoardLines(int length, string[] lines)
         {
             for (var i = 0; i < lines.Length; i++)
             {
-                string ln = lines[i];
+                string line = lines[i];
+                int paddingNeeded = length - line.Length;
 
-                int extrudeValue = length - ln.Length;
-
-                if (extrudeValue > 0)
+                // Add padding if the line is shorter than the target length
+                if (paddingNeeded > 0)
                 {
-                    ln += new string(EMPTY_CHAR, extrudeValue);
-                    lines[i] = ln;
+                    line += new string(EMPTY_CHAR, paddingNeeded);
+                    lines[i] = line;
                 }
             }
         }
     }
-
 }
