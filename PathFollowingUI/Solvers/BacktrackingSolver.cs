@@ -91,6 +91,7 @@ namespace PathFollowingUI.Solvers
 
         /// <summary>
         /// Validates if a position is a valid next move in the path solution.
+        /// Performs several checks to determine if this position can be part of the solution path.
         /// </summary>
         /// <param name="x">X coordinate to check</param>
         /// <param name="y">Y coordinate to check</param>
@@ -98,22 +99,26 @@ namespace PathFollowingUI.Solvers
         /// <returns>True if the position is valid for the next move, false otherwise</returns>
         private bool IsValidPosition(int x, int y, string currentWord)
         {
-            // Ensure coordinates are within board boundaries
+            // VALIDATION 1: Ensure coordinates are within board boundaries
             if (!AreValidBounds(x, y))
                 return false;
 
-            // Ensure position contains a valid board character
+            // VALIDATION 2: Ensure position contains a valid board character
+            // (Must be a letter, movement symbol, or player position marker)
             if (!VALID_BOARD_CHARS.Contains(GameBoard[x, y]))
                 return false;
 
-            // Avoid revisiting positions unless it's a tunnel
+            // VALIDATION 3: Avoid revisiting positions unless it's a tunnel
+            // (This prevents endless loops in the solution path)
             if (Solution[x, y] && !Tunnels[x, y])
                 return false;
 
-            // Ensure the move keeps us on track toward the solution word
+            // VALIDATION 4: Ensure the move keeps us on track toward the solution word
+            // (The current word must be a valid prefix of the target word)
             if (!BoardWord.StartsWith(currentWord))
                 return false;
 
+            // All validations passed, position is valid for the next move
             return true;
         }
 
@@ -128,74 +133,105 @@ namespace PathFollowingUI.Solvers
         /// <returns>True if a solution is found, false otherwise</returns>
         private bool MoveNextStep(int x, int y, char prevMovement, string currentWord, string pathWord)
         {
-            // Notify listeners about the current position
+            // STEP 1: Notify listeners about the current position (for UI updates)
             PlayerPositionChanged?.Invoke(boardDefinition, currentWord, pathWord);
 
-            // Extract only alphabet characters from the current word
+            // STEP 2: Calculate the filtered word (letters only) for comparison with target
             string filteredWord = new string(currentWord.Where(c => ALPHABET.Contains(c)).ToArray());
 
-            // Check if we've found a solution
-            if (filteredWord == BoardWord)
+            // STEP 3: Check if we've reached the target word and ending position
+            if (filteredWord == BoardWord && x == PlayerEndPos.X && y == PlayerEndPos.Y)
             {
-                if (x == PlayerEndPos.X && y == PlayerEndPos.Y)
-                {
-                    Solution[x, y] = true;
-                    pathWord += GameBoard[x, y];
-                    
-                    // Store solution information
-                    solutionWord = currentWord;
-                    solutionPathWord = pathWord;
-
-                    return true;
-                }
-            }
-
-            char currentChar = ' ';
-
-            // Determine the current character for movement decision
-            if (AreValidBounds(x, y))
-            {
-                currentChar = GameBoard[x, y];
-                if (ALPHABET.Contains(currentChar))
-                    currentChar = '+';
-
-                if (Solution[x, y] && Tunnels[x, y])
-                    currentChar = prevMovement;
-            }
-
-            // Check if this is a valid position to move into
-            if (IsValidPosition(x, y, filteredWord))
-            {
-                // Handle tunnels
-                if (Solution[x, y])
-                    currentChar = prevMovement;
-
-                // Update path and word
+                // SUCCESS: Solution found
+                Solution[x, y] = true;
                 pathWord += GameBoard[x, y];
                 
-                // Add to current word if it's a letter
-                if (ALPHABET.Contains(GameBoard[x, y]) && !Solution[x, y])
-                    currentWord += GameBoard[x, y];
+                // Store complete solution information
+                solutionWord = currentWord;
+                solutionPathWord = pathWord;
 
-                // Mark position as visited
-                Solution[x, y] = true;
-
-                // Try movement in directions based on the current character
-                bool solutionFound = TryMovementDirections(x, y, currentChar, currentWord, pathWord);
-                if (solutionFound)
-                    return true;
-
-                // Backtrack: if no solution found, undo changes
-                if (!Tunnels[x, y])
-                    Solution[x, y] = false;
-
-                // Remove the last character from the word and path
-                currentWord = currentWord.Length > 0 ? currentWord.Substring(0, currentWord.Length - 1) : "";
-                pathWord = pathWord.Length > 0 ? pathWord.Substring(0, pathWord.Length - 1) : "";
+                return true;
             }
 
+            // STEP 4: Early validation - quickly reject invalid positions
+            if (!IsValidPosition(x, y, filteredWord))
+                return false;
+
+            // STEP 5: Get the character at current cell and determine movement type
+            char cellChar = GameBoard[x, y];
+            char movementChar = DetermineMovementChar(x, y, prevMovement);
+            
+            // STEP 6: Update path tracking for this step
+            string newPathWord = pathWord + cellChar;
+            string newCurrentWord = currentWord;
+            
+            // STEP 7: If this is a letter cell, add it to the building word
+            if (ALPHABET.Contains(cellChar) && !Solution[x, y])
+                newCurrentWord += cellChar;
+
+            // STEP 8: Mark this position as visited in the solution grid
+            Solution[x, y] = true;
+
+            // STEP 9: Try exploring in valid directions from here
+            bool solutionFound = TryMovementDirections(x, y, movementChar, newCurrentWord, newPathWord);
+            
+            // STEP 10: If solution found in any direction, propagate success upward
+            if (solutionFound)
+                return true;
+
+            // STEP 11: Backtrack - undo the visit to this cell (unless it's a tunnel)
+            if (!Tunnels[x, y])
+                Solution[x, y] = false;
+
+            // No solution found from this position
             return false;
         }
+        
+        /// <summary>
+        /// Determines the appropriate movement character for the current cell.
+        /// This method centralizes the logic for determining which movement rules apply
+        /// based on the current cell type, whether it's a tunnel, or a letter.
+        /// </summary>
+        /// <param name="x">X coordinate</param>
+        /// <param name="y">Y coordinate</param>
+        /// <param name="prevMovement">Previous movement character</param>
+        /// <returns>Character determining movement options</returns>
+        private char DetermineMovementChar(int x, int y, char prevMovement)
+        {
+            // Safety check for bounds
+            if (!AreValidBounds(x, y))
+                return ' ';
+                
+            char cellChar = GameBoard[x, y];
+            
+            // Special handling for different cell types:
+            
+            // 1. For alphabet characters, treat them as allowing movement in all directions
+            if (ALPHABET.Contains(cellChar))
+                return '+';
+                
+            // 2. For tunnels, preserve the previous movement direction to continue through
+            if (Solution[x, y] && Tunnels[x, y])
+                return prevMovement;
+                
+            // 3. Otherwise, use the character at the cell (-, |, +, etc.)
+            return cellChar;
+        }
+
+        /// <summary>
+        /// Direction vectors for movement: right, down, left, up
+        /// </summary>
+        private readonly (int dx, int dy)[] AllDirections = { (1, 0), (0, 1), (-1, 0), (0, -1) };
+        
+        /// <summary>
+        /// Direction vectors for horizontal movement: left, right
+        /// </summary>
+        private readonly (int dx, int dy)[] HorizontalDirections = { (-1, 0), (1, 0) };
+        
+        /// <summary>
+        /// Direction vectors for vertical movement: up, down
+        /// </summary>
+        private readonly (int dx, int dy)[] VerticalDirections = { (0, -1), (0, 1) };
 
         /// <summary>
         /// Attempts to move in valid directions based on the current character.
@@ -208,44 +244,46 @@ namespace PathFollowingUI.Solvers
         /// <returns>True if a solution is found in any direction, false otherwise</returns>
         private bool TryMovementDirections(int x, int y, char currentChar, string currentWord, string pathWord)
         {
+            // STEP 1: Select appropriate direction vectors based on the current character type
+            (int dx, int dy)[] directions;
+            
             switch (currentChar)
             {
                 case (char)BoardLetterDefinition.MoveHorizontal:
-                    // Try horizontal movement only
-                    if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord))
-                        return true;
-                    if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord))
-                        return true;
+                    // For horizontal movement tiles, try left and right only
+                    directions = HorizontalDirections;
                     break;
-
+                    
                 case (char)BoardLetterDefinition.MoveVertical:
-                    // Try vertical movement only
-                    if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord))
-                        return true;
-                    if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord))
-                        return true;
+                    // For vertical movement tiles, try up and down only
+                    directions = VerticalDirections;
                     break;
-
+                    
                 case (char)BoardLetterDefinition.MoveAnywhere:
                 case (char)BoardLetterDefinition.PlayerStartPosition:
-                    // Try all four directions
-                    if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord)) return true;
+                    // For "anywhere" movement tiles and the start position, try all four directions
+                    directions = AllDirections;
                     break;
-                
+                    
                 default:
-                    // This handles the '+' case (representing letters where any direction is allowed)
-                    if (currentChar == '+')
-                    {
-                        if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord)) return true;
-                    }
+                    // Special case for '+' (alphabet characters) or handling other characters
+                    directions = currentChar == '+' ? AllDirections : null;
+                    
+                    // Skip exploration if there are no valid directions to try
+                    if (directions == null)
+                        return false;
                     break;
             }
+            
+            // STEP 2: Try all applicable directions in order
+            foreach (var (dx, dy) in directions)
+            {
+                // Recursively explore each direction, short-circuit if a solution is found
+                if (MoveNextStep(x + dx, y + dy, currentChar, currentWord, pathWord))
+                    return true;
+            }
+            
+            // No solution found in any direction
             return false;
         }
 
