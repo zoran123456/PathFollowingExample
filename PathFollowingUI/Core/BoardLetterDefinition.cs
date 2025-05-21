@@ -1,34 +1,33 @@
 ﻿namespace PathFollowingUI.Core
 {
     /// <summary>
-    /// Definitions of a letters in a board
+    /// Defines special characters used in the game board to control movement and positions.
     /// </summary>
     public enum BoardLetterDefinition
     {
         /// <summary>
-        /// Player Starting Position
+        /// Represents the player's starting position on the board.
         /// </summary>
         PlayerStartPosition = '@',
 
         /// <summary>
-        /// Player Ending Position (game solution)
+        /// Represents the player's ending position (destination) on the board.
         /// </summary>
         PlayerEndPosition = 'x',
 
         /// <summary>
-        /// Player can move in each of 4 directions
+        /// Indicates that the player can move in all four directions (up, down, left, right).
         /// </summary>
         MoveAnywhere = '+',
 
         /// <summary>
-        /// Player can move only horizontally (left or right from current position)
+        /// Indicates that the player can only move horizontally (left or right).
         /// </summary>
         MoveHorizontal = '-',
 
         /// <summary>
-        /// Player can move only vertically (up or down from current position)
+        /// Indicates that the player can only move vertically (up or down).
         /// </summary>
         MoveVertical = '|'
     }
-
 }
