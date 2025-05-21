@@ -135,67 +135,93 @@ namespace PathFollowingUI.Solvers
             string filteredWord = new string(currentWord.Where(c => ALPHABET.Contains(c)).ToArray());
 
             // Check if we've found a solution
-            if (filteredWord == BoardWord)
+            if (filteredWord == BoardWord && x == PlayerEndPos.X && y == PlayerEndPos.Y)
             {
-                if (x == PlayerEndPos.X && y == PlayerEndPos.Y)
-                {
-                    Solution[x, y] = true;
-                    pathWord += GameBoard[x, y];
-                    
-                    // Store solution information
-                    solutionWord = currentWord;
-                    solutionPathWord = pathWord;
-
-                    return true;
-                }
-            }
-
-            char currentChar = ' ';
-
-            // Determine the current character for movement decision
-            if (AreValidBounds(x, y))
-            {
-                currentChar = GameBoard[x, y];
-                if (ALPHABET.Contains(currentChar))
-                    currentChar = '+';
-
-                if (Solution[x, y] && Tunnels[x, y])
-                    currentChar = prevMovement;
-            }
-
-            // Check if this is a valid position to move into
-            if (IsValidPosition(x, y, filteredWord))
-            {
-                // Handle tunnels
-                if (Solution[x, y])
-                    currentChar = prevMovement;
-
-                // Update path and word
+                Solution[x, y] = true;
                 pathWord += GameBoard[x, y];
                 
-                // Add to current word if it's a letter
-                if (ALPHABET.Contains(GameBoard[x, y]) && !Solution[x, y])
-                    currentWord += GameBoard[x, y];
+                // Store solution information
+                solutionWord = currentWord;
+                solutionPathWord = pathWord;
 
-                // Mark position as visited
-                Solution[x, y] = true;
-
-                // Try movement in directions based on the current character
-                bool solutionFound = TryMovementDirections(x, y, currentChar, currentWord, pathWord);
-                if (solutionFound)
-                    return true;
-
-                // Backtrack: if no solution found, undo changes
-                if (!Tunnels[x, y])
-                    Solution[x, y] = false;
-
-                // Remove the last character from the word and path
-                currentWord = currentWord.Length > 0 ? currentWord.Substring(0, currentWord.Length - 1) : "";
-                pathWord = pathWord.Length > 0 ? pathWord.Substring(0, pathWord.Length - 1) : "";
+                return true;
             }
 
+            // If position is invalid, return false immediately
+            if (!IsValidPosition(x, y, filteredWord))
+                return false;
+
+            // Get the character at this position
+            char cellChar = GameBoard[x, y];
+
+            // Determine movement character for this cell
+            char movementChar = DetermineMovementChar(x, y, prevMovement);
+            
+            // Update path and temporary word
+            string newPathWord = pathWord + cellChar;
+            string newCurrentWord = currentWord;
+            
+            // Add to current word if it's a letter and not already part of solution
+            if (ALPHABET.Contains(cellChar) && !Solution[x, y])
+                newCurrentWord += cellChar;
+
+            // Mark position as visited
+            Solution[x, y] = true;
+
+            // Try movement in directions based on the current character
+            bool solutionFound = TryMovementDirections(x, y, movementChar, newCurrentWord, newPathWord);
+            
+            // If solution found, return success
+            if (solutionFound)
+                return true;
+
+            // Backtrack: if no solution found, undo changes
+            if (!Tunnels[x, y])
+                Solution[x, y] = false;
+
+            // No solution found in this path
             return false;
         }
+        
+        /// <summary>
+        /// Determines the appropriate movement character for the current cell
+        /// </summary>
+        /// <param name="x">X coordinate</param>
+        /// <param name="y">Y coordinate</param>
+        /// <param name="prevMovement">Previous movement character</param>
+        /// <returns>Character determining movement options</returns>
+        private char DetermineMovementChar(int x, int y, char prevMovement)
+        {
+            if (!AreValidBounds(x, y))
+                return ' ';
+                
+            char cellChar = GameBoard[x, y];
+            
+            // If it's an alphabet character, treat it as allowing movement in all directions
+            if (ALPHABET.Contains(cellChar))
+                return '+';
+                
+            // For tunnels, preserve the previous movement direction
+            if (Solution[x, y] && Tunnels[x, y])
+                return prevMovement;
+                
+            return cellChar;
+        }
+
+        /// <summary>
+        /// Direction vectors for movement: right, down, left, up
+        /// </summary>
+        private readonly (int dx, int dy)[] AllDirections = { (1, 0), (0, 1), (-1, 0), (0, -1) };
+        
+        /// <summary>
+        /// Direction vectors for horizontal movement: left, right
+        /// </summary>
+        private readonly (int dx, int dy)[] HorizontalDirections = { (-1, 0), (1, 0) };
+        
+        /// <summary>
+        /// Direction vectors for vertical movement: up, down
+        /// </summary>
+        private readonly (int dx, int dy)[] VerticalDirections = { (0, -1), (0, 1) };
 
         /// <summary>
         /// Attempts to move in valid directions based on the current character.
@@ -208,44 +234,41 @@ namespace PathFollowingUI.Solvers
         /// <returns>True if a solution is found in any direction, false otherwise</returns>
         private bool TryMovementDirections(int x, int y, char currentChar, string currentWord, string pathWord)
         {
+            // Choose direction vectors based on the current character
+            (int dx, int dy)[] directions;
+            
             switch (currentChar)
             {
                 case (char)BoardLetterDefinition.MoveHorizontal:
-                    // Try horizontal movement only
-                    if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord))
-                        return true;
-                    if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord))
-                        return true;
+                    directions = HorizontalDirections;
                     break;
-
+                    
                 case (char)BoardLetterDefinition.MoveVertical:
-                    // Try vertical movement only
-                    if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord))
-                        return true;
-                    if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord))
-                        return true;
+                    directions = VerticalDirections;
                     break;
-
+                    
                 case (char)BoardLetterDefinition.MoveAnywhere:
                 case (char)BoardLetterDefinition.PlayerStartPosition:
-                    // Try all four directions
-                    if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord)) return true;
-                    if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord)) return true;
+                    directions = AllDirections;
                     break;
-                
+                    
                 default:
-                    // This handles the '+' case (representing letters where any direction is allowed)
-                    if (currentChar == '+')
-                    {
-                        if (MoveNextStep(x + 1, y, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x, y + 1, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x - 1, y, currentChar, currentWord, pathWord)) return true;
-                        if (MoveNextStep(x, y - 1, currentChar, currentWord, pathWord)) return true;
-                    }
+                    // Handle '+' (alphabet characters) or any other character
+                    directions = currentChar == '+' ? AllDirections : null;
+                    
+                    // Exit if there's no valid movement direction
+                    if (directions == null)
+                        return false;
                     break;
             }
+            
+            // Try all applicable directions
+            foreach (var (dx, dy) in directions)
+            {
+                if (MoveNextStep(x + dx, y + dy, currentChar, currentWord, pathWord))
+                    return true;
+            }
+            
             return false;
         }
 
