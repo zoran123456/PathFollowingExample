@@ -260,7 +260,8 @@ namespace PathFollowingUI.Solvers
         public (bool SolutionFound, string SolutionWord, string PathWord) FindSolution(
             int x, int y, string boardWordSolution, bool[,] solution)
         {
-            solution = Solution;
+            // Note: The solution grid is already accessible through the Solution property
+            // which points to boardDefinition.BoardSolution
             BoardWord = boardWordSolution;
 
             // Start the recursive solving process
