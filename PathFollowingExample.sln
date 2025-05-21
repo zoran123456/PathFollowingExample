@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PathFollowingUI", "PathFoll
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathFollowingSolverTests", "PathFollowingSolverTests\PathFollowingSolverTests.csproj", "{D694D2EB-BBFC-4D9B-96A3-A3C785B9AD65}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PathFollowingTestConsole", "PathFollowingTestConsole\PathFollowingTestConsole.csproj", "{C22DEAB8-5AFD-4948-9409-A3D006A806E9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{D694D2EB-BBFC-4D9B-96A3-A3C785B9AD65}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D694D2EB-BBFC-4D9B-96A3-A3C785B9AD65}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D694D2EB-BBFC-4D9B-96A3-A3C785B9AD65}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C22DEAB8-5AFD-4948-9409-A3D006A806E9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C22DEAB8-5AFD-4948-9409-A3D006A806E9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C22DEAB8-5AFD-4948-9409-A3D006A806E9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C22DEAB8-5AFD-4948-9409-A3D006A806E9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
