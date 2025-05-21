@@ -85,5 +85,19 @@ namespace PathFollowingSolverTests
             Assert.Equal("BEEFCAKE", word);
             Assert.Equal("@---+B||E--+|E|+--F--+|C|||A--|-----K|||+--E--Ex", path);
         }
+
+        [Fact]
+        public void Solver_ComplexBoard_Returns_Expected_Result()
+        {
+            var solver = new PathFollowingSolver("Boards/complexBoard.txt", "ABCDEFG");
+
+            string word;
+            string path;
+
+            var ok = solver.Solve(out word, out path);
+
+            Assert.True(ok);
+            Assert.Equal("ABCDEFG", word);
+        }
     }
 }
