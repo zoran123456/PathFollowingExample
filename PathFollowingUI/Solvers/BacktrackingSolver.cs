@@ -91,6 +91,7 @@ namespace PathFollowingUI.Solvers
 
         /// <summary>
         /// Validates if a position is a valid next move in the path solution.
+        /// Performs several checks to determine if this position can be part of the solution path.
         /// </summary>
         /// <param name="x">X coordinate to check</param>
         /// <param name="y">Y coordinate to check</param>
@@ -98,22 +99,26 @@ namespace PathFollowingUI.Solvers
         /// <returns>True if the position is valid for the next move, false otherwise</returns>
         private bool IsValidPosition(int x, int y, string currentWord)
         {
-            // Ensure coordinates are within board boundaries
+            // VALIDATION 1: Ensure coordinates are within board boundaries
             if (!AreValidBounds(x, y))
                 return false;
 
-            // Ensure position contains a valid board character
+            // VALIDATION 2: Ensure position contains a valid board character
+            // (Must be a letter, movement symbol, or player position marker)
             if (!VALID_BOARD_CHARS.Contains(GameBoard[x, y]))
                 return false;
 
-            // Avoid revisiting positions unless it's a tunnel
+            // VALIDATION 3: Avoid revisiting positions unless it's a tunnel
+            // (This prevents endless loops in the solution path)
             if (Solution[x, y] && !Tunnels[x, y])
                 return false;
 
-            // Ensure the move keeps us on track toward the solution word
+            // VALIDATION 4: Ensure the move keeps us on track toward the solution word
+            // (The current word must be a valid prefix of the target word)
             if (!BoardWord.StartsWith(currentWord))
                 return false;
 
+            // All validations passed, position is valid for the next move
             return true;
         }
 
